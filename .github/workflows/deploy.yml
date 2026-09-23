@@ -23,11 +23,9 @@ jobs:
 
       - name: Deploy to Vercel
         run: |
-          vercel pull --yes --environment=production
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
           vercel build --prod
           vercel deploy --prebuilt --prod
 
       - name: Clean Up Unused Deployments
-        run: |
-          # Deletes unused preview deployments for this project
-          vercel rm $VERCEL_PROJECT_ID --safe --yesc
+        run: vercel rm project-analysis --safe --yes --token=$VERCEL_TOKEN
