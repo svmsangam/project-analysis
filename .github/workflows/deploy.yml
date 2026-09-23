@@ -21,20 +21,6 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      - name: Debug Vercel config
-        run: |
-          echo "org id length: ${#VERCEL_ORG_ID}"
-          echo "project id length: ${#VERCEL_PROJECT_ID}"
-          echo "token length: ${#VERCEL_TOKEN}"
-
-          echo "API check (project settings):"
-          curl -s -o /dev/null -w "%{http_code}\n" \
-            -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID"
-
-          vercel whoami --token "$VERCEL_TOKEN" || true
-          vercel project ls --token "$VERCEL_TOKEN" || true
-          
       - name: Deploy to Vercel
         run: |
           vercel pull --yes --environment=production --token=$VERCEL_TOKEN
