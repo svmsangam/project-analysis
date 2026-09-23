@@ -37,7 +37,7 @@ jobs:
           
       - name: Deploy to Vercel
         run: |
-          vercel pull --yes --environment=production
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
           vercel build --prod
           vercel deploy --prebuilt --prod
 
