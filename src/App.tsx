@@ -86,7 +86,7 @@ const COPILOT_PROMPTS = [
 
 export default function App() {
   // Configuration State
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState(import.meta.env.VITE_OPENROUTER_API_KEY ?? '');
   const [showApiKey, setShowApiKey] = useState(false);
   const [selectedModel, setSelectedModel] = useState('openrouter/free');
   
