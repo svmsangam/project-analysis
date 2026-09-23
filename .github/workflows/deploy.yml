@@ -25,8 +25,15 @@ jobs:
         run: |
           echo "org id length: ${#VERCEL_ORG_ID}"
           echo "project id length: ${#VERCEL_PROJECT_ID}"
-          vercel whoami --token "$VERCEL_TOKEN"
-          vercel project ls --token "$VERCEL_TOKEN"
+          echo "token length: ${#VERCEL_TOKEN}"
+
+          echo "API check (project settings):"
+          curl -s -o /dev/null -w "%{http_code}\n" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID"
+
+          vercel whoami --token "$VERCEL_TOKEN" || true
+          vercel project ls --token "$VERCEL_TOKEN" || true
           
       - name: Deploy to Vercel
         run: |
