@@ -9,6 +9,11 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -17,18 +22,12 @@ jobs:
         run: npm install --global vercel@latest
 
       - name: Deploy to Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
-          vercel build --prod --token=$VERCEL_TOKEN
-          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+          vercel pull --yes --environment=production
+          vercel build --prod
+          vercel deploy --prebuilt --prod
 
       - name: Clean Up Unused Deployments
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          # Deletes all preview deployments older than current
-          vercel rm <your-project-name> --safe --yes --token=$VERCEL_TOKEN
+          # Deletes unused preview deployments for this project
+          vercel rm $VERCEL_PROJECT_ID --safe --yesc
