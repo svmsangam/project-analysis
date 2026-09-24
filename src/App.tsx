@@ -86,12 +86,14 @@ const COPILOT_PROMPTS = [
 
 export default function App() {
   // Configuration State
-  const [apiKey, setApiKey] = useState(import.meta.env.VITE_OPENROUTER_API_KEY ?? '');
+  const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [selectedModel, setSelectedModel] = useState('openrouter/free');
   
   // Input Form State
   const [repoUrl, setRepoUrl] = useState('https://github.com/uber/zap');
+  const [customModel, setCustomModel] = useState('');
+  const [customQuery, setCustomQuery] = useState('');
   const [tone, setTone] = useState('technical');
   const [includeHashtags, setIncludeHashtags] = useState(true);
   const [includeEmojis, setIncludeEmojis] = useState(true);
@@ -126,15 +128,26 @@ export default function App() {
     setIsLoading(true);
     setIsEditing(false);
 
-    // Extract repo name derived from URL
     const cleanRepoName = repoUrl.replace(/https?:\/\/github\.com\//, '').replace(/\/$/, '');
-    
-    // Check if OpenRouter API Key is supplied
+    const effectiveModel = customModel.trim() || selectedModel;
+    const effectiveQuery = customQuery.trim() || `Generate a LinkedIn post summarizing the architecture and value proposition of repository: ${repoUrl}`;
+
     if (apiKey.trim()) {
       try {
-        const systemPrompt = `You are a world-class Developer Advocate and Technical Content Strategist.
-Analyze the repository path/URL: "${repoUrl}".
-Write an engaging, structured LinkedIn post formatted for direct copying.
+        const systemPrompt = `You are a world-class Developer Advocate and Technical Content Strategist with a strong repository-analysis workflow.
+Analyze the repository target: "${repoUrl}".
+
+Goal:
+Write a polished, accurate LinkedIn post that is directly copyable and grounded in the repository's actual architecture, goals, and technical decisions.
+
+Required analysis workflow:
+1. Start by identifying the repository purpose, likely user problem, and main modules from the repo name, directory structure, package manifests, and config files.
+2. Read README.md and any project docs, architecture notes, onboarding guides, and examples before forming conclusions.
+3. Inspect the main source entry points, config files, and dependency manifests to understand the stack, runtime, execution flow, and design patterns.
+4. If README files, comments, docstrings, inline documentation, or code annotations exist, treat them as crucial evidence to understand the repo's intent and constraints.
+5. Use code comments, function-level documentation, and TODOs to clarify what the authors believe is important and how modules are expected to work.
+6. If the repo is ambiguous, say so briefly and avoid inventing specifics that are not supported by the code or docs.
+7. Summarize the real value proposition, architecture highlights, technical tradeoffs, and key learnings in a structure suitable for LinkedIn.
 
 Tone style: ${tone}
 Include Emojis: ${includeEmojis}
@@ -142,12 +155,14 @@ Include Hashtags: ${includeHashtags}
 Include Call to Action: ${includeCTA}
 
 Formatting rules for LinkedIn:
-- Catchy first line (Hook).
-- Clear problem statement.
-- Tech Stack & Architecture bullet points.
-- Key takeaways or learnings.
+- Catchy first line (hook).
+- Clear problem statement grounded in repo evidence.
+- Tech Stack & Architecture bullet points with concrete technologies or patterns.
+- Key takeaways or lessons learned.
+- Mention actual repo concerns such as performance, developer experience, reliability, observability, or maintainability when supported by the repo.
 - DO NOT use markdown header tags (# Title) or backtick code blocks in the output text.
-- Separate paragraphs clearly.`;
+- Separate paragraphs clearly.
+- Keep the claims accurate and evidence-based instead of generic product statements.`;
 
         const response = await fetch(OPENROUTER_CHAT_COMPLETIONS_ENDPOINT, {
           method: 'POST',
@@ -158,27 +173,85 @@ Formatting rules for LinkedIn:
             'X-Title': 'Git-to-LinkedIn Generator'
           },
           body: JSON.stringify({
-            model: selectedModel,
+            model: effectiveModel,
             messages: [
               { role: 'system', content: systemPrompt },
-              { role: 'user', content: `Generate a LinkedIn post summarizing the architecture and value proposition of repository: ${repoUrl}` }
+              { role: 'user', content: effectiveQuery }
             ]
           })
         });
 
         const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.error?.message || `OpenRouter request failed with status ${response.status}`);
+        }
+
         if (data.choices && data.choices[0]?.message?.content) {
           setPostContent(data.choices[0].message.content);
-          setTechStack(['OpenRouter AI', 'Git Analysis', 'Architecture', 'Tech Stack']);
+          setTechStack(['OpenRouter AI', 'Git Analysis', 'Architecture', effectiveModel]);
           setIsLoading(false);
           return;
         }
+
+        throw new Error('OpenRouter did not return a valid AI message.');
       } catch (err) {
-        console.warn('OpenRouter API request failed or was blocked, falling back to smart simulation:', err);
+        const openRouterError = err instanceof Error ? err.message : 'Unknown OpenRouter error';
+        console.warn('OpenRouter API request failed or was blocked, falling back to smart simulation:', openRouterError);
+
+        setTimeout(() => {
+          let simulatedPost: string;
+          let simulatedStack: string[];
+
+          if (repoUrl.toLowerCase().includes('shortener') || repoUrl.toLowerCase().includes('url')) {
+            simulatedStack = ['Go', 'Redis', 'PostgreSQL', 'Base62', 'Chi Router', 'Docker', `OpenRouter Error: ${openRouterError}`];
+            simulatedPost = `${includeEmojis ? '🚀 ' : ''}Architecting Low-Latency URL Shorteners: Lessons in Caching & Hashing Strategies\n\n` +
+              `Handling millions of redirect queries daily requires minimizing database latency. In this project, I built a high-throughput URL shortener focused on cache-first routing and atomic key encoding.\n\n` +
+              `🛠️ Core Architecture & Tech Stack:\n` +
+              `• Go (Golang) & Chi HTTP Router for high-concurrency requests\n` +
+              `• Redis In-Memory Cache for 0.5ms redirect responses\n` +
+              `• Base62 Hashing Algorithm for collision-free 6-char URLs\n` +
+              `• PostgreSQL for persistent mappings & analytics\n\n` +
+              `⚡ Key Engineering Takeaway:\n` +
+              `Offloading hot key lookups to Redis before reaching persistent storage reduced database CPU load by over 80% during stress tests.\n\n` +
+              (includeCTA ? `How do you handle invalidation in your caching layers? Let's discuss in the comments below! 👇\n\n` : '') +
+              (includeHashtags ? `#Golang #BackendEngineering #Redis #SystemDesign #DistributedSystems` : '');
+          } else if (repoUrl.toLowerCase().includes('queue') || repoUrl.toLowerCase().includes('job') || repoUrl.toLowerCase().includes('worker')) {
+            simulatedStack = ['Go Goroutines', 'Worker Pool', 'RabbitMQ', 'Exponential Backoff', 'Docker', `OpenRouter Error: ${openRouterError}`];
+            simulatedPost = `${includeEmojis ? '⚙️ ' : ''}Building a Fault-Tolerant Asynchronous Job Queue in Go\n\n` +
+              `Background task processing can quickly bottleneck your web server if handled synchronously. To ensure high reliability, I designed a bounded-concurrency worker pool in Go.\n\n` +
+              `🛠️ Key Stack & Patterns Implemented:\n` +
+              `• Worker Pool Pattern utilizing Go Channels & Goroutines\n` +
+              `• Graceful Shutdown listening for OS SIGINT/SIGTERM signals\n` +
+              `• Dead Letter Queue (DLQ) with Exponential Backoff retries\n` +
+              `• Redis Streams for persistent task buffering\n\n` +
+              `💡 Learnings:\n` +
+              `By bounding the channel queue size, memory usage remained flat even during peak traffic spikes.\n\n` +
+              (includeCTA ? `What queuing strategies do you use for background jobs? Drop your thoughts below! 👇\n\n` : '') +
+              (includeHashtags ? `#BackendEngineering #Golang #Concurrency #DistributedSystems #SoftwareArchitecture` : '');
+          } else {
+            simulatedStack = ['React', 'TypeScript', 'Tailwind CSS', 'Node.js', 'OpenRouter AI', `OpenRouter Error: ${openRouterError}`];
+            simulatedPost = `${includeEmojis ? '✨ ' : ''}Introducing ${cleanRepoName || 'My Open Source Project'}: Simplifying Developer Workflows\n\n` +
+              `Understanding complex codebases quickly is a common challenge for developer teams. I created this project to automatically parse repository structures and extract clear, actionable summaries.\n\n` +
+              `🛠️ Architecture Highlights:\n` +
+              `• Clean Context Extraction Engine\n` +
+              `• Integrated OpenRouter Free Model API Fallbacks\n` +
+              `• Modern Reactive Dashboard Interface\n` +
+              `• Developer Copilot Ready Prompt Modules\n\n` +
+              `🎯 Problem Solved:\n` +
+              `Eliminates manual documentation overhead and turns repository code into polished social content in seconds.\n\n` +
+              (includeCTA ? `Check out the repository and let me know your thoughts! 👇\n\n` : '') +
+              (includeHashtags ? `#DeveloperTools #OpenSource #React #AI #WebDevelopment` : '');
+          }
+
+          setPostContent(simulatedPost);
+          setTechStack(simulatedStack);
+          setIsLoading(false);
+        }, 1200);
       }
+      return;
     }
 
-    // Simulated Smart Generator Fallback (Runs if no key or API call completes)
     setTimeout(() => {
       let simulatedPost: string;
       let simulatedStack: string[];
@@ -351,6 +424,30 @@ Formatting rules for LinkedIn:
                     placeholder="e.g. https://github.com/uber/zap or ./my-go-project"
                     className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 text-sm rounded-lg px-3.5 py-2.5 text-slate-100 placeholder-slate-600 focus:outline-none transition-all"
                   />
+                </div>
+
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-400 mb-1.5">Model Override (optional)</label>
+                    <input
+                      type="text"
+                      value={customModel}
+                      onChange={(e) => setCustomModel(e.target.value)}
+                      placeholder="Leave blank to use the selected model: openrouter/free"
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 text-sm rounded-lg px-3 py-2 text-slate-100 placeholder-slate-600 focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-400 mb-1.5">Custom Analysis Query (optional)</label>
+                    <textarea
+                      value={customQuery}
+                      onChange={(e) => setCustomQuery(e.target.value)}
+                      rows={3}
+                      placeholder="Explain the main architecture, key modules, and business value of this repository."
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 text-sm rounded-lg px-3 py-2 text-slate-100 placeholder-slate-600 focus:outline-none transition-all resize-none"
+                    />
+                  </div>
                 </div>
 
                 {/* Quick Preset Badges */}
